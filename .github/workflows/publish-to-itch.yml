@@ -1,0 +1,40 @@
+name: Deploy To Itch.io
+
+on:
+  workflow_dispatch:
+    inputs:
+      itch_game_id:
+        required: true
+        default: wipgameoff2022
+      itch_username:
+        required: true
+        default: gabrielleakers
+      game_data:
+        required: true
+        default: ./build  # todo: probably add a build step and get this as an artifact
+      if_changed:
+        required: false
+        default: false
+        type: boolean
+
+jobs:
+  deploy:
+    name: Deploy to Itch.io
+    runs-on: ubuntu-latest
+    steps:
+      - name: checkout code
+        uses: actions/checkout@v3
+      - name: zip game data
+        id: zip_src
+        run: zip -r build.zip ${{ inputs.game_data }}
+      - name: build docker image
+        run: |
+          docker build -t itch-deploy .
+      - name: push to itch
+        run: |
+          if ${{ inputs.if_changed }}; then
+            export BUTLER_CMD="build.zip ${{ inputs.itch_username }}/${{ inputs.itch_game_id }}:web --if-changed"
+          else
+            export BUTLER_CMD="build.zip ${{ inputs.itch_username }}/${{ inputs.itch_game_id }}:web"
+          fi
+          docker run --rm -it itch-deploy push ${BUTLER_CMD}
